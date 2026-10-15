@@ -25,7 +25,8 @@ These checks passed after the symlink-escape guard and tests were added. Re-run 
 ## Known follow-up work
 
 1. Continue reviewing the public API and rerun package checks after changes. A generic, read-only optional Bun web viewer is available in `src/viewer.ts`, using `markdown-it`; see `README.md` for usage.
-2. Keep domain-specific workflow/UI and `.agents`/callable tools outside this package; its generic store viewer is an optional exported module.
+2. Extend the optional viewer with optional password protection and archiving support. Define the intended archive behavior and keep both features opt-in before implementing them.
+3. Keep domain-specific workflow/UI and `.agents`/callable tools outside this package; its generic store viewer is an optional exported module.
 
 ## Safety/behavior notes
 
