@@ -1,0 +1,22 @@
+{
+  "name": "@sknunkbandit-2/markdown-store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "gray-matter": "4.0.3",
+    "markdown-it": "^15.0.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.22",
+    "@types/markdown-it": "^14.2.0",
+    "typescript": "5.9.3"
+  }
+}
