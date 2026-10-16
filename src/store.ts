@@ -46,11 +46,17 @@ export class MarkdownStore {
   /** Resolve a store-relative path and reject traversal outside its root. */
   resolve(relativePath: string): string {
     if (path.isAbsolute(relativePath)) {
-      throw new Error("Markdown store paths must be relative to the store root");
+      throw new Error(
+        "Markdown store paths must be relative to the store root"
+      );
     }
     const resolved = path.resolve(this.root, relativePath);
     const relative = path.relative(this.root, resolved);
-    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    if (
+      relative === ".." ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
+    ) {
       throw new Error(`Path escapes Markdown store root: ${relativePath}`);
     }
     const realRoot = canonicalPath(this.root);
@@ -61,7 +67,9 @@ export class MarkdownStore {
       realRelative.startsWith(`..${path.sep}`) ||
       path.isAbsolute(realRelative)
     ) {
-      throw new Error(`Path escapes Markdown store root through a symlink: ${relativePath}`);
+      throw new Error(
+        `Path escapes Markdown store root through a symlink: ${relativePath}`
+      );
     }
     return resolved;
   }
@@ -69,7 +77,7 @@ export class MarkdownStore {
   /** Read and optionally validate a record. Missing files/frontmatter return undefined. */
   read<T extends FrontmatterRecord = FrontmatterRecord>(
     relativePath: string,
-    schema?: MetadataSchema<T>,
+    schema?: MetadataSchema<T>
   ): MarkdownDocument<T> | undefined {
     const filename = this.resolve(relativePath);
     if (!fs.existsSync(filename)) return undefined;
@@ -77,7 +85,7 @@ export class MarkdownStore {
     if (!parsed) return undefined;
     const frontmatter = schema
       ? schema.parse(parsed.frontmatter)
-      : parsed.frontmatter as T;
+      : (parsed.frontmatter as T);
     return { frontmatter, body: parsed.body };
   }
 
@@ -85,7 +93,7 @@ export class MarkdownStore {
   write<T extends FrontmatterRecord>(
     relativePath: string,
     document: MarkdownDocument<T>,
-    schema?: MetadataSchema<T>,
+    schema?: MetadataSchema<T>
   ): void {
     const frontmatter = schema
       ? schema.parse(document.frontmatter)
@@ -93,12 +101,15 @@ export class MarkdownStore {
     const filename = this.resolve(relativePath);
     const directory = path.dirname(filename);
     fs.mkdirSync(directory, { recursive: true });
-    const temporary = path.join(directory, `.${path.basename(filename)}.${randomUUID()}.tmp`);
+    const temporary = path.join(
+      directory,
+      `.${path.basename(filename)}.${randomUUID()}.tmp`
+    );
     try {
       fs.writeFileSync(
         temporary,
         this.codec.stringify({ frontmatter, body: document.body }),
-        { encoding: "utf8", flag: "wx" },
+        { encoding: "utf8", flag: "wx" }
       );
       fs.renameSync(temporary, filename);
     } finally {
@@ -120,12 +131,17 @@ export class MarkdownStore {
         const filename = path.join(directory, entry.name);
         if (entry.isDirectory()) visit(filename);
         else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
-          output.push(path.relative(this.root, filename).split(path.sep).join("/"));
+          output.push(
+            path.relative(this.root, filename).split(path.sep).join("/")
+          );
         }
       }
     };
     if (fs.statSync(start).isDirectory()) visit(start);
-    else if (fs.statSync(start).isFile() && start.toLowerCase().endsWith(".md")) {
+    else if (
+      fs.statSync(start).isFile() &&
+      start.toLowerCase().endsWith(".md")
+    ) {
       output.push(path.relative(this.root, start).split(path.sep).join("/"));
     }
     return output.sort();

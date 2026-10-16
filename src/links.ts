@@ -9,7 +9,7 @@ export type MarkdownLink =
 export function resolveMarkdownLink(
   store: MarkdownStore,
   fromDocument: string,
-  href: string,
+  href: string
 ): MarkdownLink {
   if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith("//")) {
     return { kind: "external", href };
@@ -17,7 +17,7 @@ export function resolveMarkdownLink(
 
   const sourcePath = store.resolve(fromDocument);
   const base = new URL(
-    `https://markdown-store.invalid/${path.relative(store.root, sourcePath).split(path.sep).join("/")}`,
+    `https://markdown-store.invalid/${path.relative(store.root, sourcePath).split(path.sep).join("/")}`
   );
   const resolved = new URL(href, base);
   if (resolved.origin !== base.origin) return { kind: "external", href };
@@ -29,7 +29,9 @@ export function resolveMarkdownLink(
     throw new Error(`Invalid percent-encoding in Markdown link: ${href}`);
   }
   const relativePath = decodedPath.replace(/^\/+/, "");
-  const absolutePath = store.resolve(relativePath || path.relative(store.root, sourcePath));
+  const absolutePath = store.resolve(
+    relativePath || path.relative(store.root, sourcePath)
+  );
   return {
     kind: "local",
     path: path.relative(store.root, absolutePath).split(path.sep).join("/"),
@@ -43,11 +45,14 @@ export function relativeMarkdownLink(
   store: MarkdownStore,
   fromDocument: string,
   toDocument: string,
-  hash = "",
+  hash = ""
 ): string {
   const from = store.resolve(fromDocument);
   const to = store.resolve(toDocument);
-  const relative = path.relative(path.dirname(from), to).split(path.sep).join("/");
+  const relative = path
+    .relative(path.dirname(from), to)
+    .split(path.sep)
+    .join("/");
   const encoded = relative.split("/").map(encodeURIComponent).join("/");
   const linkPath = encoded.startsWith(".") ? encoded : `./${encoded}`;
   const fragment = hash ? (hash.startsWith("#") ? hash : `#${hash}`) : "";

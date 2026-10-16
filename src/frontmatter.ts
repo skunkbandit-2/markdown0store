@@ -2,7 +2,9 @@ import matter from "gray-matter";
 
 export type FrontmatterRecord = Record<string, unknown>;
 
-export interface MarkdownDocument<T extends FrontmatterRecord = FrontmatterRecord> {
+export interface MarkdownDocument<
+  T extends FrontmatterRecord = FrontmatterRecord,
+> {
   frontmatter: T;
   body: string;
 }
@@ -41,7 +43,9 @@ export const yamlFrontmatterCodec: FrontmatterCodec = {
     if (!isRecord(document.frontmatter)) {
       throw new TypeError("Frontmatter must be a mapping/object");
     }
-    const serialized = matter.stringify(document.body, document.frontmatter, { language: "yaml" });
+    const serialized = matter.stringify(document.body, document.frontmatter, {
+      language: "yaml",
+    });
     // gray-matter normalizes a final newline; preserve the caller's body exactly.
     return document.body.endsWith("\n") || !serialized.endsWith("\n")
       ? serialized

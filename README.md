@@ -26,7 +26,8 @@ const store = new MarkdownStore({
 const schema: MetadataSchema<{ title: string; labels: string[] }> = {
   parse(value) {
     // Use a project schema library here, or validate manually.
-    if (typeof value !== "object" || value === null) throw new TypeError("Expected object");
+    if (typeof value !== "object" || value === null)
+      throw new TypeError("Expected object");
     const record = value as Record<string, unknown>;
     if (typeof record.title !== "string" || !Array.isArray(record.labels)) {
       throw new TypeError("Invalid knowledge record");
@@ -35,10 +36,14 @@ const schema: MetadataSchema<{ title: string; labels: string[] }> = {
   },
 };
 
-store.write("stores/example.md", {
-  frontmatter: { title: "Example", labels: ["reviewed"] },
-  body: "# Example store\n",
-}, schema);
+store.write(
+  "stores/example.md",
+  {
+    frontmatter: { title: "Example", labels: ["reviewed"] },
+    body: "# Example store\n",
+  },
+  schema
+);
 
 const record = store.read("stores/example.md", schema);
 const files = store.listMarkdown("stores");
@@ -60,9 +65,16 @@ The optional Bun viewer lets you browse and search Markdown files without adding
 application-specific fields to the store:
 
 ```ts
-import { MarkdownStore, serveMarkdownStore, yamlFrontmatterCodec } from "@sknunkbandit-2/markdown-store";
+import {
+  MarkdownStore,
+  serveMarkdownStore,
+  yamlFrontmatterCodec,
+} from "@sknunkbandit-2/markdown-store";
 
-const store = new MarkdownStore({ root: "./knowledge", codec: yamlFrontmatterCodec });
+const store = new MarkdownStore({
+  root: "./knowledge",
+  codec: yamlFrontmatterCodec,
+});
 const viewer = serveMarkdownStore({ store, hostname: "127.0.0.1", port: 4317 });
 console.log(`Open http://${viewer.hostname}:${viewer.port}`);
 // viewer.stop();

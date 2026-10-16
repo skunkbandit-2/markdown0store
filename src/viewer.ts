@@ -39,38 +39,67 @@ let timer;search.addEventListener('input',()=>{clearTimeout(timer);timer=setTime
 </script></body></html>`;
 
 function isLoopback(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
 }
 
 function response(data: unknown, status = 200): Response {
-  return Response.json(data, { status, headers: { "cache-control": "no-store" } });
+  return Response.json(data, {
+    status,
+    headers: { "cache-control": "no-store" },
+  });
 }
 
-function getDocument(store: MarkdownStore, relativePath: string): { body: string; title: string } {
+function getDocument(
+  store: MarkdownStore,
+  relativePath: string
+): { body: string; title: string } {
   const filename = store.resolve(relativePath);
   const source = fs.readFileSync(filename, "utf8");
   const parsed = store.codec.parse(source);
   const body = parsed?.body ?? source;
-  const title = body.match(/^#\s+(.+)$/m)?.[1]?.trim() || path.posix.basename(relativePath, ".md");
+  const title =
+    body.match(/^#\s+(.+)$/m)?.[1]?.trim() ||
+    path.posix.basename(relativePath, ".md");
   return { body, title };
 }
 
 /** Start a read-only browser for a MarkdownStore. Bind to loopback unless protected by Basic Auth. */
-export function serveMarkdownStore(options: MarkdownStoreViewerOptions): MarkdownStoreViewer {
+export function serveMarkdownStore(
+  options: MarkdownStoreViewerOptions
+): MarkdownStoreViewer {
   const hostname = options.hostname ?? "127.0.0.1";
   const port = options.port ?? 0;
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
     throw new RangeError("Viewer port must be an integer between 0 and 65535");
   }
   if (!isLoopback(hostname) && (!options.username || !options.password)) {
-    throw new Error("Set username and password before binding the Markdown Store viewer beyond localhost");
+    throw new Error(
+      "Set username and password before binding the Markdown Store viewer beyond localhost"
+    );
   }
 
-  const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true });
+  const markdown = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: true,
+  });
   markdown.disable("image");
-  const defaultLinkOpen = markdown.renderer.rules.link_open ?? ((tokens, index, renderOptions, _env, renderer) =>
-    renderer.renderToken(tokens, index, renderOptions));
-  markdown.renderer.rules.link_open = (tokens, index, renderOptions, env, renderer) => {
+  const defaultLinkOpen =
+    markdown.renderer.rules.link_open ??
+    ((tokens, index, renderOptions, _env, renderer) =>
+      renderer.renderToken(tokens, index, renderOptions));
+  markdown.renderer.rules.link_open = (
+    tokens,
+    index,
+    renderOptions,
+    env,
+    renderer
+  ) => {
     const token = tokens[index];
     const rawHref = token.attrGet("href");
     const href = rawHref === null ? undefined : String(rawHref);
@@ -79,7 +108,10 @@ export function serveMarkdownStore(options: MarkdownStoreViewerOptions): Markdow
       try {
         const link = resolveMarkdownLink(options.store, currentPath, href);
         if (link.kind === "local" && link.path.toLowerCase().endsWith(".md")) {
-          token.attrSet("href", `/api/document?path=${encodeURIComponent(link.path)}${link.search}${link.hash}`);
+          token.attrSet(
+            "href",
+            `/api/document?path=${encodeURIComponent(link.path)}${link.search}${link.hash}`
+          );
           token.attrSet("data-document", link.path);
         } else if (link.kind === "external" && /^https?:/i.test(href)) {
           token.attrSet("target", "_blank");
@@ -92,41 +124,87 @@ export function serveMarkdownStore(options: MarkdownStoreViewerOptions): Markdow
     return defaultLinkOpen(tokens, index, renderOptions, env, renderer);
   };
 
-  const server = Bun.serve({ hostname, port, fetch(request) {
-    if (options.username && options.password) {
-      const authorization = `Basic ${Buffer.from(`${options.username}:${options.password}`).toString("base64")}`;
-      if (request.headers.get("authorization") !== authorization) {
-        return new Response("Authentication required", { status: 401, headers: { "www-authenticate": 'Basic realm="Markdown Store"', "cache-control": "no-store" } });
+  const server = Bun.serve({
+    hostname,
+    port,
+    fetch(request) {
+      if (options.username && options.password) {
+        const authorization = `Basic ${Buffer.from(`${options.username}:${options.password}`).toString("base64")}`;
+        if (request.headers.get("authorization") !== authorization) {
+          return new Response("Authentication required", {
+            status: 401,
+            headers: {
+              "www-authenticate": 'Basic realm="Markdown Store"',
+              "cache-control": "no-store",
+            },
+          });
+        }
       }
-    }
-    const url = new URL(request.url);
-    if (url.pathname === "/") return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
-    if (url.pathname === "/api/documents") {
-      const query = (url.searchParams.get("q") ?? "").trim().toLocaleLowerCase();
-      const documents: DocumentSummary[] = [];
-      for (const relativePath of options.store.listMarkdown()) {
+      const url = new URL(request.url);
+      if (url.pathname === "/")
+        return new Response(page, {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-store",
+          },
+        });
+      if (url.pathname === "/api/documents") {
+        const query = (url.searchParams.get("q") ?? "")
+          .trim()
+          .toLocaleLowerCase();
+        const documents: DocumentSummary[] = [];
+        for (const relativePath of options.store.listMarkdown()) {
+          try {
+            const { body, title } = getDocument(options.store, relativePath);
+            const haystack =
+              `${relativePath}\n${title}\n${body}`.toLocaleLowerCase();
+            if (query && !haystack.includes(query)) continue;
+            const excerpt = body
+              .replace(/^#+\s.*$/gm, "")
+              .replace(/!??\[([^\]]+)\]\([^)]+\)/g, "$1")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 180);
+            documents.push({
+              path: relativePath,
+              title,
+              excerpt,
+              modified: fs
+                .statSync(options.store.resolve(relativePath))
+                .mtime.toISOString(),
+            });
+          } catch {
+            /* Ignore unreadable or malformed files in the index. */
+          }
+        }
+        documents.sort((a, b) => a.path.localeCompare(b.path));
+        return response(documents.slice(0, 1000));
+      }
+      if (url.pathname === "/api/document") {
+        const relativePath = url.searchParams.get("path");
+        if (!relativePath || !relativePath.toLowerCase().endsWith(".md"))
+          return response({ error: "Document not found" }, 404);
         try {
+          const filename = options.store.resolve(relativePath);
+          if (!fs.statSync(filename).isFile())
+            return response({ error: "Document not found" }, 404);
           const { body, title } = getDocument(options.store, relativePath);
-          const haystack = `${relativePath}\n${title}\n${body}`.toLocaleLowerCase();
-          if (query && !haystack.includes(query)) continue;
-          const excerpt = body.replace(/^#+\s.*$/gm, "").replace(/!??\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\s+/g, " ").trim().slice(0, 180);
-          documents.push({ path: relativePath, title, excerpt, modified: fs.statSync(options.store.resolve(relativePath)).mtime.toISOString() });
-        } catch { /* Ignore unreadable or malformed files in the index. */ }
+          return response({
+            path: relativePath,
+            title,
+            html: markdown.render(body, { currentPath: relativePath }),
+            modified: fs.statSync(filename).mtime.toISOString(),
+          });
+        } catch {
+          return response({ error: "Document not found" }, 404);
+        }
       }
-      documents.sort((a, b) => a.path.localeCompare(b.path));
-      return response(documents.slice(0, 1000));
-    }
-    if (url.pathname === "/api/document") {
-      const relativePath = url.searchParams.get("path");
-      if (!relativePath || !relativePath.toLowerCase().endsWith(".md")) return response({ error: "Document not found" }, 404);
-      try {
-        const filename = options.store.resolve(relativePath);
-        if (!fs.statSync(filename).isFile()) return response({ error: "Document not found" }, 404);
-        const { body, title } = getDocument(options.store, relativePath);
-        return response({ path: relativePath, title, html: markdown.render(body, { currentPath: relativePath }), modified: fs.statSync(filename).mtime.toISOString() });
-      } catch { return response({ error: "Document not found" }, 404); }
-    }
-    return new Response("Not found", { status: 404 });
-  } });
-  return { hostname, port: server.port ?? port, stop: (closeActiveConnections) => server.stop(closeActiveConnections) };
+      return new Response("Not found", { status: 404 });
+    },
+  });
+  return {
+    hostname,
+    port: server.port ?? port,
+    stop: (closeActiveConnections) => server.stop(closeActiveConnections),
+  };
 }
